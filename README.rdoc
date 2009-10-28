@@ -1,6 +1,18 @@
-= ramf
+= RAMF
 
-Description goes here.
+AMF0 and AMF3 (de)serialization for Ruby.
+
+== Missing
+
+* AMF0: load
+* AMF0: dump
+* AMF3: load
+* AMF3: dump (XMLDocument, XML, ByteArray, Object)
+
+== Read More
+
+http://download.macromedia.com/pub/labs/amf/amf3_spec_121207.pdf
+
 
 == Note on Patches/Pull Requests
  
@@ -10,7 +22,7 @@ Description goes here.
   future version unintentionally.
 * Commit, do not mess with rakefile, version, or history.
   (if you want to have your own version, that is fine but
-   bump version in a commit by itself I can ignore when I pull)
+  bump version in a commit by itself I can ignore when I pull)
 * Send me a pull request. Bonus points for topic branches.
 
 == Copyright
