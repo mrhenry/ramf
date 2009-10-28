@@ -49,6 +49,7 @@ inline void emit_cdate(ramf_dump_context_t* context, uint64_t millisec);
 inline void emit_cdate_ref(ramf_dump_context_t* context, int ref);
 inline void emit_ruby_array(ramf_dump_context_t* context, VALUE array);
 inline void emit_ruby_hash(ramf_dump_context_t* context, VALUE hash);
+inline void emit_ruby_object(ramf_dump_context_t* context, VALUE object);
 
 inline int cached_string(ramf_dump_context_t* context, VALUE string) {
   VALUE key   = ULONG2NUM((uint64_t)string);
@@ -159,6 +160,11 @@ inline void emit_value(ramf_dump_context_t* context, VALUE value)
   else if (value == Qnil)
   { emit_type(context, RAMF_AMF_NULL_TYPE);
   }
+  
+  else if (1)
+  { emit_type(context, RAMF_AMF_OBJECT_TYPE);
+    emit_ruby_object(context, value);
+  }
 }
 
 inline void emit_type(ramf_dump_context_t* context, RAMF_AMF_TYPE type)
@@ -188,7 +194,7 @@ inline void emit_ruby_string(ramf_dump_context_t* context, VALUE string)
   int cache_id = cached_string(context, string);
   if (cache_id < 0) {
     long length = 0;
-    u_char* cstr = rb_str2cstr(string, &length);
+    u_char* cstr = (u_char*)rb_str2cstr(string, &length);
     emit_cstring(context, cstr, length);
   } else {
     emit_cstring_ref(context, cache_id);
@@ -213,7 +219,7 @@ inline void emit_ruby_array(ramf_dump_context_t* context, VALUE array)
     long i=0, c=RARRAY(array)->len;
     
     emit_u29(context, (c << 1) | 0x01);
-    emit_cstring(context, "", 0);
+    emit_cstring(context, 0, 0);
     for (;i<c;i++) {
       emit_value(context, rb_ary_entry(array, i));
     }
@@ -226,7 +232,7 @@ int emit_ruby_hash_iterator(VALUE key, VALUE value, VALUE extra) {
   ramf_dump_context_t* context = (ramf_dump_context_t*)extra;
   key = rb_String(key);
   long key_length = 0;
-  u_char* key_cstr = rb_str2cstr(key, &key_length);
+  u_char* key_cstr = (u_char*)rb_str2cstr(key, &key_length);
   emit_cstring(context, key_cstr, key_length);
   emit_value(context, value);
   return 0;
@@ -238,7 +244,7 @@ inline void emit_ruby_hash(ramf_dump_context_t* context, VALUE hash)
   if (cache_id < 0) {
     emit_u29(context, 0x01);
     rb_hash_foreach(hash, emit_ruby_hash_iterator, (VALUE)context);
-    emit_cstring(context, "", 0);
+    emit_cstring(context, 0, 0);
   } else {
     emit_u29(context, (cache_id << 1) & 0xfffffffe);
   }
@@ -253,6 +259,138 @@ inline void emit_ruby_hash(ramf_dump_context_t* context, VALUE hash)
   )
   *(value-type)
   *(dynamic-member) */
+
+inline void emit_ruby_object(ramf_dump_context_t* context, VALUE object)
+{
+  int cache_id = cached_object(context, object);
+  if (cache_id < 0) {
+    
+    // < external?
+    
+    // < traits ref
+    
+    long i=0, c=0;
+    VALUE attr, key;
+    char *attr_name;
+    
+    long cstr_len = 0;
+    u_char* cstr  = 0;
+    
+    VALUE class   = rb_funcall(object, rb_intern("class"), 0);
+    VALUE traits  = rb_funcall(class,  rb_intern("amf_traits"), 0);
+    VALUE dynamic = Qnil;
+    VALUE amf_cls = Qnil;
+    VALUE sealed_attrs   = Qnil;
+    VALUE dynamic_attrs  = Qnil;
+    VALUE ignored_attrs  = Qnil;
+    uint32_t sealed_len  = 0;
+    uint32_t dynamic_len = 0;
+    uint32_t ignored_len = 0;
+    
+    if (RTEST(traits)) {
+      dynamic       = rb_hash_aref(traits, ID2SYM(rb_intern("dynamic")));
+      
+      sealed_attrs  = rb_hash_aref(traits, ID2SYM(rb_intern("static")));
+      ignored_attrs = rb_hash_aref(traits, ID2SYM(rb_intern("ignore")));
+      
+      if (RTEST(sealed_attrs))
+        sealed_len = RARRAY(sealed_attrs)->len;
+      if (RTEST(ignored_attrs))
+        ignored_len = RARRAY(ignored_attrs)->len;
+      
+      amf_cls = rb_hash_aref(traits, ID2SYM(rb_intern("class")));
+    }
+    
+    if (dynamic == Qtrue || dynamic == Qnil) {
+      dynamic_attrs = rb_obj_instance_variables(object);
+      
+      for (i=0;i<ignored_len;i++) {
+        key       = rb_String(rb_ary_entry(ignored_attrs, i));
+        attr_name = StringValueCStr(key);
+        cstr_len  = RSTRING(key)->len;
+        if (attr_name[0] != '@') {
+          key = rb_str_new2("@");
+          rb_str_cat(key, attr_name, cstr_len);
+        }
+        rb_ary_delete(dynamic_attrs, key);
+      }
+      
+      for (i=0;i<sealed_len;i++) {
+        key       = rb_String(rb_ary_entry(sealed_attrs, i));
+        attr_name = StringValueCStr(key);
+        cstr_len  = RSTRING(key)->len;
+        if (attr_name[0] != '@') {
+          key = rb_str_new2("@");
+          rb_str_cat(key, attr_name, cstr_len);
+        }
+        rb_ary_delete(dynamic_attrs, key);
+      }
+      
+      if (dynamic == Qnil && (RARRAY(dynamic_attrs)->len == 0)) {
+        dynamic = Qfalse;
+      } else {
+        dynamic = Qtrue;
+      }
+    }
+    
+    if (!RTEST(amf_cls)) { amf_cls = class; }
+    
+    c = sealed_len;
+    
+    cache_id = cached_trait(context, class);
+    if (cache_id < 0) {
+      emit_u29(context, ((sealed_len) << 4) | (RTEST(dynamic) ? 0x0000000f : 0x00000007));
+      
+      cstr = (u_char*)rb_str2cstr(rb_String(amf_cls), &cstr_len);
+      emit_cstring(context, cstr, cstr_len);
+      
+      for (i=0;i<c;i++) {
+        key       = rb_String(rb_ary_entry(sealed_attrs, i));
+        attr_name = StringValueCStr(key);
+        cstr_len  = RSTRING(key)->len;
+        if (attr_name[0] == '@') {
+          attr_name++;
+          emit_cstring(context, (u_char*)attr_name, cstr_len-1);
+        } else {
+          emit_cstring(context, (u_char*)attr_name, cstr_len);
+        }
+      }
+    } else {
+      emit_u29(context, ((cache_id << 2) & (0xffffffff << 2)) | 0x00000001);
+    }
+    
+    for (i=0;i<c;i++) {
+      key       = rb_String(rb_ary_entry(sealed_attrs, i));
+      attr_name = StringValueCStr(key);
+      if (attr_name[0] == '@') {
+        attr = rb_iv_get(object, attr_name);
+      } else {
+        attr = rb_funcall(object, rb_intern(attr_name), 0);
+      }
+      emit_value(context, attr);
+    }
+    
+    if (dynamic == Qtrue) {
+      c = RARRAY(dynamic_attrs)->len;
+      for (i=0;i<c;i++) {
+        key = rb_String(rb_ary_entry(dynamic_attrs, i));
+        attr_name = StringValueCStr(key);
+        attr = rb_iv_get(object, attr_name);
+        
+        attr_name++;
+        emit_cstring(context, (u_char*)attr_name, RSTRING(key)->len - 1);
+        
+        emit_value(context, attr);
+      }
+      
+      emit_cstring(context, 0, 0);
+    }
+    
+    
+  } else {
+    emit_u29(context, (cache_id << 1) & 0xfffffffe);
+  }
+}
 
 inline void emit_u29(ramf_dump_context_t* context, uint32_t v)
 {

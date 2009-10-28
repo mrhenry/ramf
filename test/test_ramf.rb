@@ -73,4 +73,29 @@ class TestRamf < Test::Unit::TestCase
     assert_equal [0x09, 0b101, 0x01, 0x09, 0x00, 0x09, 0x00].pack('CCCCCCC'), RAMF::AMF3.dump(arr)
   end
   
+  def test_dump_object
+    object = Person.new
+    object.name   = "Simon Menke"
+    object.age    = 22
+    object.gender = "m"
+    
+    expected = "\x0A\x37\x35be.mrhenry.contacts.Person\x09name\x07age\x0dgender\x06\x17Simon Menke\x04\x16\x06\x03m"
+    assert_equal expected, RAMF::AMF3.dump(object)
+    
+    object.occupation = "Development"
+    
+    expected = "\x0A\x3F\x35be.mrhenry.contacts.Person\x09name\x07age\x0dgender\x06\x17Simon Menke\x04\x16\x06\x03m\x15occupation\x06\x17Development\x01"
+    assert_equal expected, RAMF::AMF3.dump(object)
+  end
+  
+  def test_dump_object_ref
+    n = '+32 488 478 282'
+    pn1 = PhoneNumber.new(n, 'home')
+    pn2 = PhoneNumber.new(n)
+    c   = Card.new(pn1, pn2, pn2)
+    
+    expected = "\n\0271be.mrhenry.contacts.Card\ephone_numbers\t\a\001\n\037?be.mrhenry.contacts.PhoneNumber\vvalue\006\037+32 488 478 282\vlabel\006\thome\001\n\005\006\000\001\n\006"
+    assert_equal expected, RAMF::AMF3.dump(c)
+  end
+  
 end
