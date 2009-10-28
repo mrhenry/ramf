@@ -19,3 +19,7 @@ rdoc
 pkg
 
 ## PROJECT::SPECIFIC
+ext/Makefile
+ext/*.o
+ext/ramf_ext.so
+ext/ramf_ext.bundle

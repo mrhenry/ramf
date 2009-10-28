@@ -5,12 +5,12 @@ begin
   require 'jeweler'
   Jeweler::Tasks.new do |gem|
     gem.name = "ramf"
-    gem.summary = %Q{TODO: one-line summary of your gem}
-    gem.description = %Q{TODO: longer description of your gem}
+    gem.summary = %Q{AMF (de-)serializer}
+    gem.description = %Q{AMF (de-)serializer for ruby}
     gem.email = "simon@mrhenry.be"
     gem.homepage = "http://github.com/simonmenke/ramf"
     gem.authors = ["Simon Menke"]
-    gem.add_development_dependency "thoughtbot-shoulda", ">= 0"
+    gem.extensions << 'ext/extconf.rb'
     # gem is a Gem::Specification... see http://www.rubygems.org/read/chapter/20 for additional settings
   end
 rescue LoadError
@@ -38,8 +38,16 @@ rescue LoadError
 end
 
 task :test => :check_dependencies
+task :test => :build_ext
 
 task :default => :test
+
+task :build_ext do
+  Dir.chdir('ext') do
+    # system 'ruby extconf.rb'
+    system 'make'
+  end
+end
 
 require 'rake/rdoctask'
 Rake::RDocTask.new do |rdoc|
