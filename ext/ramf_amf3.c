@@ -478,7 +478,92 @@ inline void emit_cdate_ref(ramf_dump_context_t* context, int ref)
 }
 
 
-VALUE ramf_load_amf3(VALUE self, VALUE io_or_string)
+
+// ================================
+// = Load AMF3 from a Ruby String =
+// ================================
+
+typedef struct {
+  u_char * buffer;
+  u_char * cursor;
+  u_char * buffer_end;
+  
+  VALUE strings;
+  int string_id;
+  VALUE objects;
+  int object_id;
+  VALUE traits;
+  int trait_id;
+} ramf_load_context_t;
+
+inline VALUE load_amf3_value(ramf_load_context_t* context);
+inline VALUE load_amf3_integer(ramf_load_context_t* context);
+
+inline int is_eof(ramf_load_context_t* context)
 {
-  return Qundef;
+  return (context->buffer_end == context->cursor);
+}
+
+inline u_char read_byte(ramf_load_context_t* context)
+{
+  if (is_eof(context)) return 0;
+  u_char c = context->cursor[0];
+  context->cursor++;
+  return c;
+}
+
+VALUE ramf_load_amf3(VALUE self, VALUE string)
+{
+  ramf_load_context_t context;
+  context.buffer     = (u_char*)RSTRING(string)->ptr;
+  context.cursor     = context.buffer;
+  context.buffer_end = context.buffer + RSTRING(string)->len;
+  
+  VALUE result = load_amf3_value(&context);
+  
+  return result;
+}
+
+inline VALUE load_amf3_value(ramf_load_context_t* context)
+{
+  if (is_eof(context)) { return Qnil; }
+  switch (read_byte(context)) {
+    case RAMF_AMF_UNDEFINED_TYPE:  return Qnil;
+    case RAMF_AMF_NULL_TYPE:       return Qnil;
+    case RAMF_AMF_FALSE_TYPE:      return Qfalse;
+    case RAMF_AMF_TRUE_TYPE:       return Qtrue;
+    case RAMF_AMF_INTEGER_TYPE:    return load_amf3_integer(context);
+    case RAMF_AMF_DOUBLE_TYPE:     return Qnil;
+    case RAMF_AMF_STRING_TYPE:     return Qnil;
+    case RAMF_AMF_XML_DOC_TYPE:    return Qnil;
+    case RAMF_AMF_DATE_TYPE:       return Qnil;
+    case RAMF_AMF_ARRAY_TYPE:      return Qnil;
+    case RAMF_AMF_OBJECT_TYPE:     return Qnil;
+    case RAMF_AMF_XML_TYPE:        return Qnil;
+    case RAMF_AMF_BYTE_ARRAY_TYPE: return Qnil;
+  }
+}
+
+inline VALUE load_amf3_integer(ramf_load_context_t* context)
+{
+  uint32_t  i = 0;
+  u_char    c = 0;
+  char      b = 0;
+  
+  for (b=0; b<4; b++) {
+    if (is_eof(context))
+      return Qnil;
+    c = read_byte(context);
+    
+    if (b < 3) {
+      i = i << 7;
+      i = i  | (c & 0x7F);
+      if (!(c & 0x80)) break;
+    } else {
+      i = i << 8;
+      i = i  | c;
+    }
+  }
+  
+  return UINT2NUM(i);
 }

@@ -6,13 +6,14 @@ AMF0 and AMF3 (de)serialization for Ruby.
 
 * AMF0: load
 * AMF0: dump
-* AMF3: load
+* AMF3: load (double, String, XMLDocument, Date, Array, Object, XML, ByteArray)
 * AMF3: dump (XMLDocument, XML, ByteArray)
+
 
 == Read More
 
-http://download.macromedia.com/pub/labs/amf/amf3_spec_121207.pdf
-http://opensource.adobe.com/wiki/download/attachments/1114283/amf0_spec_121207.pdf
+* http://download.macromedia.com/pub/labs/amf/amf3_spec_121207.pdf
+* http://opensource.adobe.com/wiki/download/attachments/1114283/amf0_spec_121207.pdf
 
 
 == Note on Patches/Pull Requests

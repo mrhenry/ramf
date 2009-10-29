@@ -1,6 +1,6 @@
 require 'helper'
 
-class TestRamf < Test::Unit::TestCase
+class Test_RAMF_AMF3_dump < Test::Unit::TestCase
   
   def test_define_RAMF
     assert Object.const_defined?('RAMF')
