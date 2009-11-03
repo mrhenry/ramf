@@ -23,4 +23,9 @@ class Test_RAMF_AMF3_load < Test::Unit::TestCase
     assert_equal nil, RAMF::AMF3.load("\x00")
   end
   
+  def test_load_double_type
+    assert_equal 5.5, RAMF::AMF3.load([0x05, 5.5].pack('CG'))
+    assert_equal 1073741824, RAMF::AMF3.load([0x05, 1073741824].pack('CG'))
+  end
+  
 end

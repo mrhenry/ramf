@@ -6,7 +6,7 @@ AMF0 and AMF3 (de)serialization for Ruby.
 
 * AMF0: load
 * AMF0: dump
-* AMF3: load (double, String, XMLDocument, Date, Array, Object, XML, ByteArray)
+* AMF3: load (String, XMLDocument, Date, Array, Object, XML, ByteArray)
 * AMF3: dump (XMLDocument, XML, ByteArray)
 
 

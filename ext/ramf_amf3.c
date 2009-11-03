@@ -431,8 +431,7 @@ inline void emit_double(ramf_dump_context_t* context, double num)
   d.dval = num;
   u_char buffer[8];
   
-  if(1) // bigendian
-  {
+  if(BIG_ENDIAN){
     buffer[0] = number[7];
     buffer[1] = number[6];
     buffer[2] = number[5];
@@ -498,6 +497,7 @@ typedef struct {
 
 inline VALUE load_amf3_value(ramf_load_context_t* context);
 inline VALUE load_amf3_integer(ramf_load_context_t* context);
+inline VALUE load_amf3_double(ramf_load_context_t* context);
 
 inline int is_eof(ramf_load_context_t* context)
 {
@@ -510,6 +510,14 @@ inline u_char read_byte(ramf_load_context_t* context)
   u_char c = context->cursor[0];
   context->cursor++;
   return c;
+}
+
+inline u_char* read_bytes(ramf_load_context_t* context, size_t len)
+{
+  if ((context->cursor + 8) > context->buffer_end) return 0;
+  u_char* buffer = context->cursor;
+  context->cursor += 8;
+  return buffer;
 }
 
 VALUE ramf_load_amf3(VALUE self, VALUE string)
@@ -533,7 +541,7 @@ inline VALUE load_amf3_value(ramf_load_context_t* context)
     case RAMF_AMF_FALSE_TYPE:      return Qfalse;
     case RAMF_AMF_TRUE_TYPE:       return Qtrue;
     case RAMF_AMF_INTEGER_TYPE:    return load_amf3_integer(context);
-    case RAMF_AMF_DOUBLE_TYPE:     return Qnil;
+    case RAMF_AMF_DOUBLE_TYPE:     return load_amf3_double(context);
     case RAMF_AMF_STRING_TYPE:     return Qnil;
     case RAMF_AMF_XML_DOC_TYPE:    return Qnil;
     case RAMF_AMF_DATE_TYPE:       return Qnil;
@@ -566,4 +574,27 @@ inline VALUE load_amf3_integer(ramf_load_context_t* context)
   }
   
   return UINT2NUM(i);
+}
+
+inline VALUE load_amf3_double(ramf_load_context_t* context)
+{
+  union aligned {
+    double dval;
+    u_char cval[8];
+  } d;
+  
+  const u_char * cp = read_bytes(context, 8);
+  
+  if (cp) {
+    if (BIG_ENDIAN) {
+      d.cval[0] = cp[7]; d.cval[1] = cp[6]; d.cval[2] = cp[5]; d.cval[3] = cp[4];
+      d.cval[4] = cp[3]; d.cval[5] = cp[2]; d.cval[6] = cp[1]; d.cval[7] = cp[0];
+    } else {
+      MEMCPY(d.cval, cp, u_char, 8);
+    }
+    
+    return rb_float_new(d.dval);
+  }
+  
+  return Qnil;
 }
