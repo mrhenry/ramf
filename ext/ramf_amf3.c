@@ -267,8 +267,6 @@ inline void emit_ruby_object(ramf_dump_context_t* context, VALUE object)
     
     // < external?
     
-    // < traits ref
-    
     long i=0, c=0;
     VALUE attr, key;
     char *attr_name;
@@ -498,6 +496,8 @@ typedef struct {
 inline VALUE load_amf3_value(ramf_load_context_t* context);
 inline VALUE load_amf3_integer(ramf_load_context_t* context);
 inline VALUE load_amf3_double(ramf_load_context_t* context);
+inline VALUE load_amf3_string(ramf_load_context_t* context);
+inline VALUE load_amf3_date(ramf_load_context_t* context);
 
 inline int is_eof(ramf_load_context_t* context)
 {
@@ -514,9 +514,9 @@ inline u_char read_byte(ramf_load_context_t* context)
 
 inline u_char* read_bytes(ramf_load_context_t* context, size_t len)
 {
-  if ((context->cursor + 8) > context->buffer_end) return 0;
+  if ((context->cursor + len) > context->buffer_end) return 0;
   u_char* buffer = context->cursor;
-  context->cursor += 8;
+  context->cursor += len;
   return buffer;
 }
 
@@ -526,6 +526,14 @@ VALUE ramf_load_amf3(VALUE self, VALUE string)
   context.buffer     = (u_char*)RSTRING(string)->ptr;
   context.cursor     = context.buffer;
   context.buffer_end = context.buffer + RSTRING(string)->len;
+  
+  context.strings    = rb_ary_new();
+  context.objects    = rb_ary_new();
+  context.traits     = rb_ary_new();
+  
+  context.string_id  = 0;
+  context.object_id  = 0;
+  context.trait_id   = 0;
   
   VALUE result = load_amf3_value(&context);
   
@@ -542,9 +550,9 @@ inline VALUE load_amf3_value(ramf_load_context_t* context)
     case RAMF_AMF_TRUE_TYPE:       return Qtrue;
     case RAMF_AMF_INTEGER_TYPE:    return load_amf3_integer(context);
     case RAMF_AMF_DOUBLE_TYPE:     return load_amf3_double(context);
-    case RAMF_AMF_STRING_TYPE:     return Qnil;
+    case RAMF_AMF_STRING_TYPE:     return load_amf3_string(context);
     case RAMF_AMF_XML_DOC_TYPE:    return Qnil;
-    case RAMF_AMF_DATE_TYPE:       return Qnil;
+    case RAMF_AMF_DATE_TYPE:       return load_amf3_date(context);
     case RAMF_AMF_ARRAY_TYPE:      return Qnil;
     case RAMF_AMF_OBJECT_TYPE:     return Qnil;
     case RAMF_AMF_XML_TYPE:        return Qnil;
@@ -552,7 +560,7 @@ inline VALUE load_amf3_value(ramf_load_context_t* context)
   }
 }
 
-inline VALUE load_amf3_integer(ramf_load_context_t* context)
+inline uint32_t load_amf3_c_integer(ramf_load_context_t* context)
 {
   uint32_t  i = 0;
   u_char    c = 0;
@@ -560,7 +568,7 @@ inline VALUE load_amf3_integer(ramf_load_context_t* context)
   
   for (b=0; b<4; b++) {
     if (is_eof(context))
-      return Qnil;
+      return 0;
     c = read_byte(context);
     
     if (b < 3) {
@@ -573,10 +581,15 @@ inline VALUE load_amf3_integer(ramf_load_context_t* context)
     }
   }
   
-  return UINT2NUM(i);
+  return i;
 }
 
-inline VALUE load_amf3_double(ramf_load_context_t* context)
+inline VALUE load_amf3_integer(ramf_load_context_t* context)
+{
+  return UINT2NUM(load_amf3_c_integer(context));
+}
+
+inline double load_amf3_c_double(ramf_load_context_t* context)
 {
   union aligned {
     double dval;
@@ -592,9 +605,70 @@ inline VALUE load_amf3_double(ramf_load_context_t* context)
     } else {
       MEMCPY(d.cval, cp, u_char, 8);
     }
-    
-    return rb_float_new(d.dval);
+    return d.dval;
   }
   
-  return Qnil;
+  return 0;
+}
+
+inline VALUE load_amf3_double(ramf_load_context_t* context)
+{
+  return rb_float_new(load_amf3_c_double(context));
+}
+
+inline u_char* load_amf3_c_string(ramf_load_context_t* context, uint32_t* len, int32_t* ref)
+{
+  uint32_t header = load_amf3_c_integer(context);
+  if (header & 0x00000001) {
+    *len = (header >> 1);
+    *ref = -1;
+    return read_bytes(context, *len);
+  } else {
+    *len = 0;
+    *ref = (header >> 1);
+    return 0;
+  }
+}
+
+inline VALUE load_amf3_string(ramf_load_context_t* context)
+{
+  uint32_t len = 0;
+  int32_t  ref = 0;
+  u_char * str = load_amf3_c_string(context, &len, &ref);
+  if (ref == -1) {
+    VALUE rb_str = rb_str_new((char*)str, len);
+    rb_ary_push(context->strings, rb_str);
+    context->string_id ++;
+    return rb_str;
+  } else {
+    if (ref < context->string_id) {
+      return rb_ary_entry(context->strings, ref);
+    } else {
+      rb_raise(rb_eRuntimeError, "parse error!");
+      return Qnil;
+    }
+  }
+}
+
+inline VALUE load_amf3_date(ramf_load_context_t* context)
+{
+  uint32_t header = load_amf3_c_integer(context);
+  if (header & 0x00000001) {
+    double milliseconds = load_amf3_c_double(context);
+    time_t seconds      = (milliseconds / 1000.0);
+    time_t microseconds = ((milliseconds / 1000.0) - (double)seconds) * (1000.0 * 1000.0);
+    
+    VALUE rb_time = rb_time_new(seconds, microseconds);
+    rb_ary_push(context->objects, rb_time);
+    context->object_id ++;
+    return rb_time;
+  } else {
+    uint32_t ref = (header >> 1);
+    if (ref < context->object_id) {
+      return rb_ary_entry(context->objects, ref);
+    } else {
+      rb_raise(rb_eRuntimeError, "parse error!");
+      return Qnil;
+    }
+  }
 }
