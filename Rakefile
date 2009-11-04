@@ -42,9 +42,14 @@ task :test => :build_ext
 
 task :default => :test
 
+task :setup_ext do
+  Dir.chdir('ext') do
+    system 'ruby extconf.rb'
+  end
+end
+
 task :build_ext do
   Dir.chdir('ext') do
-    # system 'ruby extconf.rb'
     system 'make'
   end
 end
