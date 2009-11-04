@@ -498,10 +498,18 @@ inline VALUE load_amf3_integer(ramf_load_context_t* context);
 inline VALUE load_amf3_double(ramf_load_context_t* context);
 inline VALUE load_amf3_string(ramf_load_context_t* context);
 inline VALUE load_amf3_date(ramf_load_context_t* context);
+inline VALUE load_amf3_array(ramf_load_context_t* context);
 
 inline int is_eof(ramf_load_context_t* context)
 {
   return (context->buffer_end == context->cursor);
+}
+
+inline u_char peek_byte(ramf_load_context_t* context)
+{
+  if (is_eof(context)) return 0;
+  u_char c = context->cursor[0];
+  return c;
 }
 
 inline u_char read_byte(ramf_load_context_t* context)
@@ -553,7 +561,7 @@ inline VALUE load_amf3_value(ramf_load_context_t* context)
     case RAMF_AMF_STRING_TYPE:     return load_amf3_string(context);
     case RAMF_AMF_XML_DOC_TYPE:    return Qnil;
     case RAMF_AMF_DATE_TYPE:       return load_amf3_date(context);
-    case RAMF_AMF_ARRAY_TYPE:      return Qnil;
+    case RAMF_AMF_ARRAY_TYPE:      return load_amf3_array(context);
     case RAMF_AMF_OBJECT_TYPE:     return Qnil;
     case RAMF_AMF_XML_TYPE:        return Qnil;
     case RAMF_AMF_BYTE_ARRAY_TYPE: return Qnil;
@@ -662,6 +670,54 @@ inline VALUE load_amf3_date(ramf_load_context_t* context)
     rb_ary_push(context->objects, rb_time);
     context->object_id ++;
     return rb_time;
+  } else {
+    uint32_t ref = (header >> 1);
+    if (ref < context->object_id) {
+      return rb_ary_entry(context->objects, ref);
+    } else {
+      rb_raise(rb_eRuntimeError, "parse error!");
+      return Qnil;
+    }
+  }
+}
+
+inline VALUE load_amf3_array(ramf_load_context_t* context)
+{
+  uint32_t header = load_amf3_c_integer(context);
+  if (header & 0x00000001) {
+    uint32_t size = (header >> 1);
+    if ((size >= 0) && (peek_byte(context) == 0x01)) {
+      // array
+      
+      if (read_byte(context) != 0x01) {
+        rb_raise(rb_eRuntimeError, "parse error!");
+      }
+      
+      VALUE rb_array = rb_ary_new();
+      uint32_t i;
+      for (i=0;i<size;i++) {
+        rb_ary_push(rb_array, load_amf3_value(context));
+      }
+      
+      rb_ary_push(context->objects, rb_array);
+      context->object_id ++;
+      return rb_array;
+    } else {
+      // hash
+      
+      VALUE rb_hash = rb_hash_new();
+      VALUE key, value;
+      while (1) {
+        key = load_amf3_string(context);
+        if (RSTRING(key)->len == 0) { break; }
+        value = load_amf3_value(context);
+        rb_hash_aset(rb_hash, key, value);
+      }
+      
+      rb_ary_push(context->objects, rb_hash);
+      context->object_id ++;
+      return rb_hash;
+    }
   } else {
     uint32_t ref = (header >> 1);
     if (ref < context->object_id) {

@@ -38,4 +38,14 @@ class Test_RAMF_AMF3_load < Test::Unit::TestCase
     assert_in_delta t.to_f, RAMF::AMF3.load([0x08, 0x01, (t.to_f * 1000).to_i].pack('CCG')).to_f, 0.001
   end
   
+  def test_load_array_type
+    assert_equal [], RAMF::AMF3.load([0x09, 0x01, 0x01].pack('CCC'))
+    assert_equal [nil], RAMF::AMF3.load([0x09, 0x03, 0x01, 0x01].pack('CCCC'))
+    assert_equal ['bye'], RAMF::AMF3.load([0x09, 0x03, 0x01, 0x06, 0b111, "bye"].pack('CCCCCa3'))
+  end
+  
+  def test_dump_hash_type
+    assert_equal({"bye" => "bye"}, RAMF::AMF3.load([0x09, 0x01, 0b111, "bye", 0x06, 0b111, "bye", 0x01].pack('CCCa3CCa3C')))
+  end
+  
 end
