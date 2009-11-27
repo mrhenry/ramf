@@ -5,13 +5,14 @@
 
 Gem::Specification.new do |s|
   s.name = %q{ramf}
-  s.version = "0.0.0"
+  s.version = "0.0.1.a1"
 
-  s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
+  s.required_rubygems_version = Gem::Requirement.new("> 1.3.1") if s.respond_to? :required_rubygems_version=
   s.authors = ["Simon Menke"]
-  s.date = %q{2009-10-27}
+  s.date = %q{2009-11-27}
   s.description = %q{AMF (de-)serializer for ruby}
   s.email = %q{simon@mrhenry.be}
+  s.extensions = ["ext/extconf.rb", "ext/extconf.rb"]
   s.extra_rdoc_files = [
     "LICENSE",
      "README.rdoc"
@@ -23,11 +24,26 @@ Gem::Specification.new do |s|
      "README.rdoc",
      "Rakefile",
      "VERSION",
+     "benchmarks/reading_amf0.rb",
+     "benchmarks/reading_amf3.rb",
      "ext/extconf.rb",
+     "ext/loader.h",
      "ext/ramf.c",
+     "ext/ramf_AMF0Deserializer.c",
+     "ext/ramf_AMF0Deserializer.h",
+     "ext/ramf_AMF3Deserializer.c",
+     "ext/ramf_AMF3Deserializer.h",
+     "ext/ramf_ReadIOHelpers_inline.h",
+     "ext/ramf_WriteIOHelpers_inline.h",
+     "ext/ramf_core.c",
+     "ext/ramf_core.h",
+     "ext/writer.h",
      "lib/ramf.rb",
+     "ramf.gemspec",
+     "test/fixtures.rb",
      "test/helper.rb",
-     "test/test_ramf.rb"
+     "test/test_ramf_amf3_dump.rb",
+     "test/test_ramf_amf3_load.rb"
   ]
   s.homepage = %q{http://github.com/simonmenke/ramf}
   s.rdoc_options = ["--charset=UTF-8"]
@@ -35,8 +51,10 @@ Gem::Specification.new do |s|
   s.rubygems_version = %q{1.3.5}
   s.summary = %q{AMF (de-)serializer}
   s.test_files = [
-    "test/helper.rb",
-     "test/test_ramf.rb"
+    "test/fixtures.rb",
+     "test/helper.rb",
+     "test/test_ramf_amf3_dump.rb",
+     "test/test_ramf_amf3_load.rb"
   ]
 
   if s.respond_to? :specification_version then
@@ -44,12 +62,9 @@ Gem::Specification.new do |s|
     s.specification_version = 3
 
     if Gem::Version.new(Gem::RubyGemsVersion) >= Gem::Version.new('1.2.0') then
-      s.add_development_dependency(%q<thoughtbot-shoulda>, [">= 0"])
     else
-      s.add_dependency(%q<thoughtbot-shoulda>, [">= 0"])
     end
   else
-    s.add_dependency(%q<thoughtbot-shoulda>, [">= 0"])
   end
 end
 

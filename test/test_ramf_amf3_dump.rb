@@ -1,5 +1,5 @@
 require 'helper'
-
+__END__
 class Test_RAMF_AMF3_dump < Test::Unit::TestCase
   
   def test_define_RAMF
