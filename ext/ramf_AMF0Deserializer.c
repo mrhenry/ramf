@@ -78,6 +78,11 @@ STATIC VALUE rb_read_string(ramf0_load_context_t* context, bool is_long)
 
 STATIC VALUE rb_read_object(ramf0_load_context_t* context, bool add_to_ref_cache)
 {
+  static ID underscore_id = (ID)0;
+  if (underscore_id == (ID)0) {
+    underscore_id = rb_intern("underscore");
+  }
+  
   VALUE object = rb_hash_new();
   
   if (add_to_ref_cache) {
@@ -88,6 +93,8 @@ STATIC VALUE rb_read_object(ramf0_load_context_t* context, bool add_to_ref_cache
     VALUE key = rb_read_string(context, 0);
     int8_t type = c_read_int8(context);
     if (type == AMF0_OBJECT_END_MARKER) { break; }
+    
+    key = rb_funcall(key, underscore_id, 0);
     key = rb_str_intern(key);
     rb_hash_aset(object, key, rb_deserialize(context, type));
   }
@@ -165,11 +172,11 @@ STATIC VALUE rb_read_array(ramf0_load_context_t* context)
 
 STATIC VALUE rb_read_date(ramf0_load_context_t* context)
 {
-  double milliseconds = c_read_double(context) / 1000.0;
+  double seconds_f = c_read_double(context) / 1000.0;
   uint16_t tz = c_read_word16_network(context);
   
-  time_t seconds      = (milliseconds / 1000.0);
-  time_t microseconds = ((milliseconds / 1000.0) - (double)seconds) * (1000.0 * 1000.0);
+  time_t seconds      = seconds_f;
+  time_t microseconds = (seconds_f - (double)seconds) * (1000.0 * 1000.0);
   
   return rb_time_new(seconds, microseconds);
 }

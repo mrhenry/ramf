@@ -100,36 +100,49 @@ static inline VALUE rb_read_array(ramf3_load_context_t * context)
   }
   
   int32_t len = (type >> 1);
-  if ((len >= 0) && (peek_byte(context) == 0x01)) {
+  VALUE key, value;
+  key = rb_read_string(context);
+  if ((len >= 0) && (RSTRING(key)->len == 0)) {
     // array
-    read_byte(context); // ignore
     
     VALUE object = rb_ary_new();
+    rb_ary_push(context->objects, object);
     int32_t i = 0;
     for (;i<len;i++) {
       rb_ary_push(object, rb_deserialize(context, READ_TYPE_FROM_IO));
     }
     
-    rb_ary_push(context->objects, object);
     return object;
   } else {
     // hash
     VALUE object = rb_hash_new();
-    VALUE key, value;
+    rb_ary_push(context->objects, object);
     while (1) {
-      key = rb_read_string(context);
-      if (RSTRING(key)->len == 0) { break; }
       value = rb_deserialize(context, READ_TYPE_FROM_IO);
       rb_hash_aset(object, key, value);
+      key = rb_read_string(context);
+      if (RSTRING(key)->len == 0) { break; }
     }
     
-    rb_ary_push(context->objects, object);
     return object;
   }
 }
 
 static inline VALUE rb_read_object(ramf3_load_context_t * context)
 {
+  static VALUE rb_amf_cClassMapper         = Qnil;
+  static ID    rb_amf_get_ruby_obj_id      = (ID)0;
+  static ID    rb_amf_populate_ruby_obj_id = (ID)0;
+  static ID    rb_amf_externalized_data_id = (ID)0;
+  static ID    underscore_id = (ID)0;
+  if (rb_amf_cClassMapper == Qnil) {
+    rb_amf_cClassMapper         = rb_const_get(rb_const_get(rb_cObject, rb_intern("AMF")), rb_intern("ClassMapper"));
+    rb_amf_get_ruby_obj_id      = rb_intern("get_ruby_obj");
+    rb_amf_populate_ruby_obj_id = rb_intern("populate_ruby_obj");
+    rb_amf_externalized_data_id = rb_intern("externalized_data=");
+    underscore_id               = rb_intern("underscore");
+  }
+  
   int32_t i,type = c_read_integer(context);
   
   if ((type & 0x01) == 0) {
@@ -162,8 +175,11 @@ static inline VALUE rb_read_object(ramf3_load_context_t * context)
     attribute_count  = (class_type >> 3);
     class_attributes = rb_ary_new();
     
-    for(i=0; i< attribute_count; i++) {
-      rb_ary_push(class_attributes, rb_read_string(context));
+    VALUE key = Qnil;
+    for(i=0; i<attribute_count; i++) {
+      key = rb_read_string(context);
+      key = rb_funcall(key, underscore_id, 0);
+      rb_ary_push(class_attributes, key);
     }
     
     rb_hash_aset(class_definition, rb_str_new2("class_name"),    class_name);
@@ -171,18 +187,6 @@ static inline VALUE rb_read_object(ramf3_load_context_t * context)
     rb_hash_aset(class_definition, rb_str_new2("externalizable"),(externalizable ? Qtrue : Qfalse));
     rb_hash_aset(class_definition, rb_str_new2("dynamic"),       (dynamic        ? Qtrue : Qfalse));
     rb_ary_push(context->traits, class_definition);
-  }
-  
-  
-  static VALUE rb_amf_cClassMapper         = Qnil;
-  static ID    rb_amf_get_ruby_obj_id      = (ID)0;
-  static ID    rb_amf_populate_ruby_obj_id = (ID)0;
-  static ID    rb_amf_externalized_data_id = (ID)0;
-  if (rb_amf_cClassMapper == Qnil) {
-    rb_amf_cClassMapper         = rb_const_get(rb_const_get(rb_cObject, rb_intern("AMF")), rb_intern("ClassMapper"));
-    rb_amf_get_ruby_obj_id      = rb_intern("get_ruby_obj");
-    rb_amf_populate_ruby_obj_id = rb_intern("populate_ruby_obj");
-    rb_amf_externalized_data_id = rb_intern("externalized_data=");
   }
   
   VALUE object     = rb_funcall(
@@ -208,6 +212,7 @@ static inline VALUE rb_read_object(ramf3_load_context_t * context)
       dynamic_props = rb_hash_new();
       while (peek_byte(context) != 0x01) {
         key = rb_read_string(context);
+        key = rb_funcall(key, underscore_id, 0);
         rb_hash_aset(dynamic_props, key, rb_deserialize(context, READ_TYPE_FROM_IO));
       }
       read_byte(context);
