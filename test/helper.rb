@@ -1,9 +1,10 @@
 require 'rubygems'
 require 'test/unit'
 
-$LOAD_PATH.unshift(File.join(File.dirname(__FILE__), '..', 'ext'))
-$LOAD_PATH.unshift(File.join(File.dirname(__FILE__), '..', 'lib'))
-$LOAD_PATH.unshift(File.dirname(__FILE__))
+$:.unshift(File.extend_path('../../ext', __FILE__))
+$:.unshift(File.extend_path('../../lib', __FILE__))
+$:.unshift(File.extend_path('..', __FILE__))
+
 require 'ramf'
 require 'fixtures'
 

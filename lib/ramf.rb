@@ -1,2 +1,4 @@
-
-require 'ramf_ext'
+module RAMF
+  require 'ramf_ext'
+  require 'ramf/version'
+end

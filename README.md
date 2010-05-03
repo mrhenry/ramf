@@ -1,8 +1,8 @@
-= RAMF
+# RAMF
 
 AMF0 and AMF3 (de)serialization for Ruby.
 
-== Missing
+## Missing
 
 * AMF0: load
 * AMF0: dump
@@ -10,14 +10,14 @@ AMF0 and AMF3 (de)serialization for Ruby.
 * AMF3: dump (XMLDocument, XML, ByteArray)
 
 
-== Read More
+## Read More
 
-* http://download.macromedia.com/pub/labs/amf/amf3_spec_121207.pdf
-* http://opensource.adobe.com/wiki/download/attachments/1114283/amf0_spec_121207.pdf
+* [AMF3 Spec][amf3]
+* [AMF0 Spec][amf0]
 
 
-== Note on Patches/Pull Requests
- 
+## Note on Patches/Pull Requests
+
 * Fork the project.
 * Make your feature addition or bug fix.
 * Add tests for it. This is important so I don't break it in a
@@ -27,6 +27,10 @@ AMF0 and AMF3 (de)serialization for Ruby.
   bump version in a commit by itself I can ignore when I pull)
 * Send me a pull request. Bonus points for topic branches.
 
-== Copyright
+## Copyright
 
 Copyright (c) 2009 Simon Menke. See LICENSE for details.
+
+
+  [amf3]: http://download.macromedia.com/pub/labs/amf/amf3_spec_121207.pdf
+  [amf0]: http://opensource.adobe.com/wiki/download/attachments/1114283/amf0_spec_121207.pdf
